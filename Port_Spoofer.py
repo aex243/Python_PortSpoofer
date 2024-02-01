@@ -37,7 +37,7 @@ async def main():
     tasks = []
     ip = '192.168.238.1'
     print("Checking available ports...")
-    for port in range(1024, 65535):
+    for port in range(1024, 65535): #Set port range here
         if not is_port_in_use(port):
             print(f"Starting server on port {port}")
             task = asyncio.create_task(start_server(port))
