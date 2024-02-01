@@ -1,4 +1,5 @@
 import asyncio
+import socket
 
 async def handle_client(reader, writer, port):
     data = await reader.read(100)
@@ -7,7 +8,6 @@ async def handle_client(reader, writer, port):
 
     print(f"Received {message} from {addr}")
 
-    # Unique signature for each port
     response = f'Mock server on port {port} response\n'
     writer.write(response.encode())
     await writer.drain()
@@ -16,22 +16,35 @@ async def handle_client(reader, writer, port):
     writer.close()
 
 async def start_server(port):
-    # Bind to the specific IP address
-    server = await asyncio.start_server(
-        lambda r, w: handle_client(r, w, port),
-        '192.168.238.1', port
-    )
+    server = await asyncio.start_server(lambda r, w: handle_client(r, w, port), '192.168.238.1', port)
     addr = server.sockets[0].getsockname()
-    print(f'Serving on {addr}')
+    print(f'Server started, serving on {addr}')
 
     async with server:
         await server.serve_forever()
+        
+#Function to check if a port is in use#
+def is_port_in_use(port):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        try:
+            s.bind(('192.168.238.1', port))
+        except socket.error:
+            return True
+        return False
 
+#Main routine to start servers on available port
 async def main():
     tasks = []
-    for port in range(1024, 1501):
-        task = asyncio.create_task(start_server(port))
-        tasks.append(task)
+    ip = '192.168.238.1'
+    print("Checking available ports...")
+    for port in range(1024, 65535):
+        if not is_port_in_use(port):
+            print(f"Starting server on port {port}")
+            task = asyncio.create_task(start_server(port))
+            tasks.append(task)
+        else:
+            print(f"Skipping port {port} as it is in use.")
+    print("All available servers started. Running...")
     await asyncio.gather(*tasks)
 
 asyncio.run(main())
