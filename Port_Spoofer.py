@@ -1,33 +1,42 @@
 import asyncio
 import socket
+import logging
+
+#Configure logging
+logging.basicConfig(level=logging.INFO, filename='server_connections.log',
+                    format='%(asctime)s - %(levelname)s - %(message)s')
 
 async def handle_client(reader, writer, port):
-    data = await reader.read(100)
-    message = data.decode()
     addr = writer.get_extra_info('peername')
+    
+    # Log the connection attempt
+    logging.info(f"Connection attempt from {addr} on port {port}")
 
-    print(f"Received {message} from {addr}")
+    try:
+        data = await reader.read(100)
+        #Decode with errors ignored
+        message = data.decode('utf-8', errors='ignore')
+        logging.info(f"Received data from {addr} on port {port}: {message}")
+    except Exception as e:
+        logging.error(f"Error handling data from {addr}: {e}")
 
-    response = f'Mock server on port {port} response\n'
+    response = f"Mock server on port {port} response\n"
     writer.write(response.encode())
     await writer.drain()
 
-    print("Closing the connection")
     writer.close()
+    await writer.wait_closed()  # Ensure the writer is properly closed
 
 async def start_server(port):
-    server = await asyncio.start_server(lambda r, w: handle_client(r, w, port), '192.168.238.1', port) #Set your Bind IP here
-    addr = server.sockets[0].getsockname()
-    print(f'Server started, serving on {addr}')
-
+    server = await asyncio.start_server(lambda r, w: handle_client(r, w, port), '0.0.0.0', port) #Set your Bind IP here ( by default all )
     async with server:
         await server.serve_forever()
-        
-#Function to check if a port is in use#
+
+#Function to check if a port is in use
 def is_port_in_use(port):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         try:
-            s.bind(('192.168.238.1', port))
+            s.bind(('0.0.0.0', port))
         except socket.error:
             return True
         return False
@@ -35,7 +44,6 @@ def is_port_in_use(port):
 #Main routine to start servers on available port
 async def main():
     tasks = []
-    ip = '192.168.238.1'
     print("Checking available ports...")
     for port in range(1024, 65535): #Set port range here
         if not is_port_in_use(port):
